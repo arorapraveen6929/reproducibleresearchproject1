@@ -1,0 +1,201 @@
+---
+title: "project 1 rework 2"
+author: "Praveen Arora"
+date: "16/11/2020"
+output: html_document
+---
+---
+
+## Assignment Instructions
+1.Code for reading in the dataset and/or processing the data
+2.Histogram of the total number of steps taken each day
+3.Mean and median number of steps taken each day
+4.Time series plot of the average number of steps taken
+5.The 5-minute interval that, on average, contains the maximum number of steps
+6.Code to describe and show a strategy for imputing missing data
+7.Histogram of the total number of steps taken each day after missing values are imputed
+8.Panel plot comparing the average number of steps taken per 5-minute interval across weekdays and weekends
+
+
+## Step 1 reading the file and formatting the date and loading the libraries needed
+
+```{r, echo = TRUE}
+
+setwd("c:/users/Praveen/Desktop/Coursera/reproducibleresearchproject1")
+activity <- read.csv("activity.csv")
+library(data.table)
+library(lubridate)
+library(lattice)
+```
+
+##displaying the loaded data
+
+```{r,echo=TRUE}
+
+dim(activity)
+head(activity)
+names(activity)
+summary(activity)
+#changing to date format
+
+activity$date<- ymd(activity$date)
+
+#total number of missing data
+sum(is.na(activity$steps))
+
+
+```
+
+## Step 2 plotting the histogram of number of steps in a day and seeing if it comes in .MD file
+
+```{r,echo=TRUE}
+
+daysum <- aggregate(steps ~ date, activity, sum, na.rm=TRUE)
+png(filename="plot1.png")
+hist(daysum$steps)
+dev.off
+```
+
+
+## Step3 calculating mean, median, sum by date and by interval and plotting histogram of daysteps
+
+```{r,echo=TRUE}
+meanstepsinaday <- mean(daysum$steps)
+meanstepsinaday
+
+medianstepsinaday <- median(daysum$steps)
+medianstepsinaday
+```
+
+##creating variables to cover number of steps within interval, additional variable created for testing functionality later
+
+```{r,echo=TRUE}
+
+intervalsum <- aggregate(steps ~ interval, activity, sum, na.rm=TRUE)
+intervalmean <- aggregate(steps ~ interval, activity, mean, na.rm=TRUE)
+intervalmedian <- aggregate(steps ~ interval, activity, median, na.rm=TRUE)
+
+```
+## Step 4, plotting average steps in an interval
+```{r,echo=TRUE}
+png(filename="plot2.png")
+plot(steps~interval,data=intervalmean,type="l")
+dev.off
+```
+
+## Step 5, interval with max steps
+```{r,echo=TRUE}
+intervalmaxsteps <- intervalmean[which.max(intervalmean$steps),]$interval
+intervalmaxsteps
+```
+
+## Step 6, total missing values to replaced by mean value for that interval
+
+```{r,echo=TRUE}
+missingvaluetotal <- sum(is.na(activity$steps))
+missingvaluetotal
+```
+
+###this function gets the meanvalue for the specific interval
+```{r,echo=TRUE} 
+meanstepsperinterval <- function(interval)
+{
+    intervalmean[intervalmean$interval==interval,]$steps
+}
+
+```
+
+###this function looks at every row, wherever missing data is found, it obtains mean value for that interval & substitutes it)
+###The new data set with no missing values is contained in the variable activitynomissing
+
+```{r,echo=TRUE}
+
+activitynomissing <- activity
+for (i in 1:nrow(activitynomissing))
+{
+	if(is.na(activitynomissing[i,]$steps))
+	{
+		activitynomissing[i,]$steps <- meanstepsperinterval(activitynomissing[i,]$interval)
+	}
+}
+```
+
+
+## Step 7 Making a histogram of the total number of steps taken each day and Calculate and report the mean and median total number of steps taken per day. 
+
+```{r,echo=TRUE}
+
+totalstepsperdaynomissing <- aggregate(steps~date,data=activitynomissing,sum)
+png(filename="plot3.png")
+hist(totalstepsperdaynomissing$steps)
+dev.off
+meannomissing <- mean(totalstepsperdaynomissing$steps)
+
+mediannomissing <- median(totalstepsperdaynomissing$steps)
+
+meannomissing
+
+mediannomissing
+
+```
+
+###the median differs from the estimate 
+###since mean value used to substiture NA data, mean is the same as before
+
+## As an addition step, I used another direct replacement without creating intermediate function, tested with sum, max, mean and median
+#####intervalmax <- aggregate(steps ~ interval, activity, max, na.rm=TRUE)
+
+#####activitynomissing1 <- activity	
+#####for (i in 1:nrow(activitynomissing))
+#####{
+#####if(is.na(activitynomissing1[i,]$steps))
+#####{
+#####activitynomissing1[i,]$steps <- intervalmax[intervalmax$interval==(activitynomissing[i,]$interval),]$steps
+#####}
+#####}
+
+#####totalstepsperdaynomissing1 <- aggregate(steps~date,data=activitynomissing1,sum)
+
+#####meannomissing1 <- mean(totalstepsperdaynomissing1$steps)
+
+#####mediannomissing1 <- median(totalstepsperdaynomissing1$steps)
+
+#####meannomissing1
+
+#####mediannomissing1
+
+
+## Step 8. Creating factor variable on the weekday... using for loop to create factor variable for each row 
+
+```{r,echo=TRUE}
+
+activitynomissing$date <- ymd(activitynomissing$date)
+
+activitynomissing$day <- weekdays(activitynomissing$date)
+
+for (i in 1:nrow(activitynomissing))
+{
+	if(activitynomissing[i,]$day %in% c("Saturday","Sunday"))
+	{
+		activitynomissing[i,]$day="weekend"
+	}
+	else
+	{
+		activitynomissing[i,]$day="weekday"
+	}
+}
+
+```
+
+##making a panel plot containing a time series plot of the 5-minute interval (x-axis) and 
+##the average number of steps taken, averaged across all weekday days or weekend days (y-axis). 
+ 
+```{r,echo=TRUE}
+
+stepbydaytype <- aggregate(activitynomissing$steps~activitynomissing$interval + activitynomissing$day,activitynomissing,mean)
+
+names(stepbydaytype) <- c("interval", "day", "steps")
+png(filename="plot4.png")
+xyplot(steps~interval|day,stepbydaytype,type="l",layout=c(1,2),xlab="Interval",ylab="# Steps")
+dev.off
+```
